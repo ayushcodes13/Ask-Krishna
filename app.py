@@ -9,14 +9,6 @@ import json
 import pickle
 import numpy as np
 import os
-import datetime
-from sqlalchemy.orm import Session
-from fastapi import Depends
-from database import engine, get_db
-import models
-
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
 
 import transformers
 import torch

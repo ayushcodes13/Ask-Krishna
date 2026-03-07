@@ -10,11 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatView = document.getElementById('chat-view');
     const chatHistory = document.getElementById('chat-history');
 
-    // Sidebar Elements
-    const sidebar = document.getElementById('history-sidebar');
-    const openSidebarBtn = document.getElementById('open-sidebar');
-    const closeSidebarBtn = document.getElementById('close-sidebar');
-
     // Modal Elements
     const verseModal = document.getElementById('verse-modal');
     const openModalBtns = document.querySelectorAll('.open-daily-verse-btn');
