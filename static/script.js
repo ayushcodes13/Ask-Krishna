@@ -182,8 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const decodedData = data.replace(/\\n/g, '\n').replace(/\\"/g, '"');
                             fullText += decodedData;
 
-                            // Use marked.js for beautiful markdown rendering (bold, italics, paragraphs)
-                            textElement.innerHTML = marked.parse(fullText);
+                            textElement.textContent = fullText;
                             scrollToBottom();
                         } else if (currentEvent === 'done') {
                             break;
@@ -213,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Error fetching stream:', error);
-            textElement.innerHTML = marked.parse("The connection to the divine has been momentarily disrupted. Please try speaking again.");
+            textElement.innerHTML = formatText("The connection to the divine has been momentarily disrupted. Please try speaking again.");
         } finally {
             chatInput.disabled = false;
             document.getElementById('btn-send').style.opacity = '1';
@@ -243,6 +242,10 @@ document.addEventListener('DOMContentLoaded', () => {
         chatHistory.appendChild(div);
         scrollToBottom();
         return div.querySelector('.krishna-content');
+    }
+
+    function formatText(text) {
+        return text.split('\n').filter(p => p.trim() !== '').map(p => `<p>${p}</p>`).join('');
     }
 
     function scrollToBottom() {
