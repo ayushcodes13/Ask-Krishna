@@ -20,8 +20,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const openModalBtns = document.querySelectorAll('.open-daily-verse-btn');
     const closeModalBtn = document.getElementById('close-modal');
 
+    // Session Management
+    let sessionId = localStorage.getItem('ask_krishna_session_id');
+    if (!sessionId) {
+        sessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('ask_krishna_session_id', sessionId);
+    }
+
     // Daily Verse Populate
     populateDailyVerse();
+
+    // Load History
+    loadHistory();
 
     // Auto-resize textareas
     const textareas = document.querySelectorAll('textarea');
@@ -144,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/chat/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message })
+                body: JSON.stringify({ message: message, session_id: sessionId })
             });
 
             if (!response.ok) throw new Error('Network response was not ok');
@@ -253,6 +263,65 @@ document.addEventListener('DOMContentLoaded', () => {
             top: document.body.scrollHeight,
             behavior: 'smooth'
         });
+    }
+
+    async function loadHistory() {
+        try {
+            const res = await fetch(`/api/history/${sessionId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.messages && data.messages.length > 0) {
+                    // Hide landing, show chat
+                    landingView.classList.remove('active');
+                    landingView.classList.add('hidden');
+                    chatView.classList.remove('hidden');
+                    chatView.classList.add('active');
+
+                    data.messages.forEach(msg => {
+                        if (msg.role === 'user') {
+                            addUserMessage(msg.content);
+                        } else {
+                            const contentContainer = addKrishnaStreamingResponseContainer(msg.date || Date.now());
+                            contentContainer.querySelector('.krishna-text').textContent = msg.content;
+                            if (msg.verses && msg.verses.length > 0) {
+                                msg.verses.forEach(verse => {
+                                    if (verse.sanskrit || verse.english) {
+                                        const cardTemplate = document.getElementById('verse-card-template').content.cloneNode(true);
+                                        cardTemplate.querySelector('.ch').textContent = verse.chapter || "";
+                                        cardTemplate.querySelector('.vs').textContent = verse.verse || "";
+                                        if (verse.sanskrit) {
+                                            cardTemplate.querySelector('.verse-sanskrit').textContent = verse.sanskrit;
+                                        } else {
+                                            const skNode = cardTemplate.querySelector('.verse-sanskrit');
+                                            if (skNode) skNode.remove();
+                                        }
+                                        cardTemplate.querySelector('.verse-english').textContent = verse.english;
+                                        contentContainer.appendChild(cardTemplate);
+                                    }
+                                });
+                            }
+                        }
+                    });
+
+                    // Populate Sidebar with summary
+                    const historyList = document.getElementById('history-list');
+                    historyList.innerHTML = `
+                        <div class="history-item" onclick="localStorage.removeItem('ask_krishna_session_id'); window.location.reload();">
+                            <span class="history-date" style="color: var(--accent-gold);">✦ Start New Journey</span>
+                            <div class="history-preview">Begin a new path and clear your current spiritual conversation.</div>
+                        </div>
+                        <div class="history-item" style="cursor: default; border-color: transparent;">
+                            <span class="history-date">Current Journey</span>
+                            <div class="history-preview">${data.messages.length} exchanges recorded.</div>
+                        </div>
+                    `;
+
+                    scrollToBottom();
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load history", e);
+        }
     }
 
     // Ambient Particles Engine

@@ -9,6 +9,15 @@ import json
 import pickle
 import numpy as np
 import os
+import datetime
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from database import engine, get_db
+import models
+
+# Create database tables
+models.Base.metadata.create_all(bind=engine)
+
 import transformers
 import torch
 from sentence_transformers import SentenceTransformer
@@ -71,6 +80,7 @@ print("Setting up Generator Pipeline...")
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: str
 
 class VerseDetail(BaseModel):
     chapter: int
@@ -168,6 +178,9 @@ def chat_with_krishna(request: ChatRequest):
 async def chat_with_krishna_stream(request: Request, body: ChatRequest):
     query = body.message
     
+    if not body.session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
     # 1. Retrieve
     relevant_verses = find_relevant_verses(query, top_k=2)
     
@@ -211,15 +224,45 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest):
                 stream=True,
             )
             
+            full_response = ""
             for chunk in stream:
                 if chunk.choices[0].delta.content is not None:
                     # Yield each token to the client
+                    full_response += chunk.choices[0].delta.content
                     yield {
                         "event": "message",
                         "data": chunk.choices[0].delta.content
                     }
-                    # Small sleep to ensure the stream isn't completely buffered and sends immediately
                     await asyncio.sleep(0.01)
+                    
+            # --- Save to Database after successful stream ---
+            def save_to_db():
+                db = next(get_db())
+                # Ensure session exists
+                db_session = db.query(models.ChatSession).filter(models.ChatSession.id == body.session_id).first()
+                if not db_session:
+                    db_session = models.ChatSession(id=body.session_id)
+                    db.add(db_session)
+                    db.commit()
+                
+                # Save User Message
+                user_msg = models.ChatMessage(session_id=body.session_id, role="user", content=query)
+                db.add(user_msg)
+                
+                # Save Krishna Message
+                krishna_msg = models.ChatMessage(
+                    session_id=body.session_id,
+                    role="krishna",
+                    content=full_response,
+                    verses=[v.model_dump() if hasattr(v, 'model_dump') else v for v in relevant_verses]
+                )
+                db.add(krishna_msg)
+                
+                db.commit()
+            
+            # Run save blocking task in background
+            import threading
+            threading.Thread(target=save_to_db).start()
                     
         except Exception as e:
             print(f"Error streaming from Groq: {e}")
@@ -234,6 +277,26 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest):
         }
 
     return EventSourceResponse(event_generator())
+
+@app.get("/api/history/{session_id}")
+def get_chat_history(session_id: str, db: Session = Depends(get_db)):
+    db_session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
+    if not db_session:
+        return {"messages": []}
+    
+    # Sort messages by creation time
+    messages = db.query(models.ChatMessage).filter(models.ChatMessage.session_id == session_id).order_by(models.ChatMessage.created_at.asc()).all()
+    
+    history = []
+    for msg in messages:
+        history.append({
+            "role": msg.role,
+            "content": msg.content,
+            "verses": msg.verses or [],
+            "date": msg.created_at.isoformat()
+        })
+        
+    return {"messages": history}
 
 if __name__ == "__main__":
     import uvicorn
