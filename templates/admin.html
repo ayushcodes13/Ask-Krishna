@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeetaBot - Admin Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300..900;1,300..900&family=Philosopher:ital,wght@0,400;0,700;1,400;1,700&family=Yeseva+One&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #1A1200;
+            --accent-gold: #E8A020;
+            --accent-teal: #1A6B72;
+            --text-light: #FDF3DC;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Crimson Pro', serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Yeseva One', serif;
+            color: var(--accent-gold);
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 800px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(232, 160, 32, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(232, 160, 32, 0.3);
+        }
+
+        .header a {
+            color: var(--text-light);
+            text-decoration: none;
+            opacity: 0.7;
+            font-size: 1.1rem;
+            transition: opacity 0.3s;
+        }
+
+        .header a:hover {
+            opacity: 1;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(26, 107, 114, 0.4);
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-gold);
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--accent-gold);
+            font-family: 'Philosopher', sans-serif;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 1.1rem;
+            color: rgba(253, 243, 220, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #loading {
+            text-align: center;
+            font-size: 1.2rem;
+            padding: 40px;
+            color: rgba(253, 243, 220, 0.5);
+            font-style: italic;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .error {
+            color: #c0392b;
+            text-align: center;
+            padding: 20px;
+            background: rgba(192, 57, 43, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(192, 57, 43, 0.3);
+            margin-top: 20px;
+        }
+    </style>
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+    <div class="dashboard">
+        <div class="header">
+            <div>
+                <h1>GeetaBot Admin</h1>
+                <p style="margin-top: 5px; color: rgba(253,243,220,0.6);">Platform Overview</p>
+            </div>
+            <a href="/">← Back to App</a>
+        </div>
+
+        <div id="loading">Gathering insights from the divine realm...</div>
+        <div id="error" class="error hidden">You must be logged in as an administrator to view this page.</div>
+
+        <div class="grid hidden" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Souls</div>
+                <div class="stat-value" id="val-users">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Pro Believers</div>
+                <div class="stat-value" id="val-pro">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Guidance Sent Today</div>
+                <div class="stat-value" id="val-questions">0</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Init matching main app
+        const supabaseUrl = "https://dehtwcvtmfussylekpoo.supabase.co"; // Matches user's instance
+        // Assuming the anon key is populated by the template or hardcoded in frontend for demo. 
+        // NOTE: In production, do not hardcode. But since this is a quick script:
+        // Let's actually just rely on the session stored by the main app and call our API.
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // We can use the existing token if they are logged in on the main site because it uses local storage.
+            // We'll initialize an empty client just to read the session out of local storage seamlessly.
+            const SUPABASE_ANON_KEY = "sb_publishable_YJ_zhLqbnAwVo37tzc8Miw_DVvmIUjK";
+            const supabase = window.supabase.createClient(supabaseUrl, SUPABASE_ANON_KEY);
+
+            const { data: { session } } = await supabase.auth.getSession();
+
+            const loading = document.getElementById('loading');
+            const errorElem = document.getElementById('error');
+            const grid = document.getElementById('stats-grid');
+
+            if (!session) {
+                loading.classList.add('hidden');
+                errorElem.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`
+                    }
+                });
+
+                if (!res.ok) throw new Error("Unauthorized");
+
+                const data = await res.json();
+
+                document.getElementById('val-users').textContent = data.users || 0;
+                document.getElementById('val-pro').textContent = data.pro_users || 0;
+                document.getElementById('val-questions').textContent = data.questions_today || 0;
+
+                loading.classList.add('hidden');
+                grid.classList.remove('hidden');
+
+            } catch (e) {
+                loading.classList.add('hidden');
+                errorElem.textContent = "Failed to load statistics. Are you an admin?";
+                errorElem.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>

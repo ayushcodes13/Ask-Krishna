@@ -13,7 +13,8 @@
         rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -58,27 +59,57 @@
     <!-- Chat View -->
     <div id="chat-view" class="view-container hidden">
         <header class="chat-header">
-            <div class="header-logo" onclick="window.location.reload()">
-                <svg class="peacock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Abstract peacock feather icon -->
-                    <path
-                        d="M12 22C12 22 17 18 19 14C20.6 10.8 19 8 16 6C13.5 4.3 12 2 12 2C12 2 10.5 4.3 8 6C5 8 3.4 10.8 5 14C7 18 12 22 12 22Z"
-                        fill="url(#paint0_linear)" />
-                    <circle cx="12" cy="11" r="3" fill="#1A6B72" />
-                    <circle cx="12" cy="11" r="1.5" fill="#E8A020" />
-                    <defs>
-                        <linearGradient id="paint0_linear" x1="12" y1="2" x2="12" y2="22"
-                            gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#1A6B72" />
-                            <stop offset="1" stop-color="#0c3236" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-                <span>Ask Krishna</span>
+            <div class="header-left">
+                <button id="open-sidebar" class="hamburger-btn">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </button>
+                <div class="header-logo" onclick="window.location.reload()">
+                    <svg class="peacock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Abstract peacock feather icon -->
+                        <path
+                            d="M12 22C12 22 17 18 19 14C20.6 10.8 19 8 16 6C13.5 4.3 12 2 12 2C12 2 10.5 4.3 8 6C5 8 3.4 10.8 5 14C7 18 12 22 12 22Z"
+                            fill="url(#paint0_linear)" />
+                        <circle cx="12" cy="11" r="3" fill="#1A6B72" />
+                        <circle cx="12" cy="11" r="1.5" fill="#E8A020" />
+                        <defs>
+                            <linearGradient id="paint0_linear" x1="12" y1="2" x2="12" y2="22"
+                                gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#1A6B72" />
+                                <stop offset="1" stop-color="#0c3236" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <span>Ask Krishna</span>
+                </div>
             </div>
-            <div class="right-action">
-                <button class="text-btn" id="btn-logout" style="margin-right: 10px;">Logout</button>
+
+            <div class="usage-counter hidden" id="usage-counter">
+                <span id="usage-text">0 / 5</span> Questions Today
+            </div>
+
+            <div class="right-action" style="display: flex; align-items: center; gap: 15px;">
                 <button class="text-btn open-daily-verse-btn">✦ Daily Verse</button>
+                <button class="icon-btn" id="open-bookmarks-btn" title="Saved Verses"
+                    style="color: var(--accent-gold);">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polygon
+                            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                        </polygon>
+                    </svg>
+                </button>
+                <button class="icon-btn" id="open-dashboard-btn" title="Your Settings">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
             </div>
         </header>
 
@@ -186,15 +217,235 @@
         </div>
     </div>
 
+    <!-- Upgrade Modal -->
+    <div id="upgrade-modal" class="modal-overlay">
+        <div class="modal-content auth-content upgrade-content">
+            <button id="close-upgrade-modal" class="icon-btn close-modal-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="auth-widget">
+                <div class="widget-label">✦ Walk the Full Path ✦</div>
+                <h2 class="auth-title">You seek more, dear soul.</h2>
+                <div class="upgrade-body">
+                    <p class="upgrade-text">Your daily limit of guidance has been reached. To unlock boundless wisdom,
+                        consider ascending to the Pro tier.</p>
+                    <ul class="upgrade-features">
+                        <li>✦ Unlimited Daily Questions</li>
+                        <li>✦ Beautiful Share Cards</li>
+                        <li>✦ Library of Saved Verses</li>
+                        <li>✦ Weekly Wisdom Email Digests</li>
+                    </ul>
+                    <button class="btn-primary auth-submit" id="btn-upgrade-pro" style="margin-top: 1.5rem;">
+                        <span class="btn-text">Unlock Infinite Wisdom — ₹499/mo</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Template for Verse Cards (hidden, used by JS) -->
     <template id="verse-card-template">
         <div class="verse-card">
-            <div class="verse-badge">Bhagavad Gita — Chapter <span class="ch"></span>, Verse <span class="vs"></span>
+            <div class="verse-header">
+                <div>
+                    <span class="bg">Bhagavad Gita</span>
+                    <span class="ch-vs"><span class="ch"></span>.<span class="vs"></span></span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="icon-btn bookmark-verse-btn" title="Save Verse">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon
+                                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                            </polygon>
+                        </svg>
+                    </button>
+                    <button class="icon-btn share-verse-btn" title="Share Wisdom">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M18 8C19.6569 8 21 6.65685 21 5C21 3.34315 19.6569 2 18 2C16.3431 2 15 3.34315 15 5C15 6.65685 16.3431 8 18 8Z"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path
+                                d="M6 15C7.65685 15 9 13.6569 9 12C9 10.3431 7.65685 9 6 9C4.34315 9 3 10.3431 3 12C3 13.6569 4.34315 15 6 15Z"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path
+                                d="M18 22C19.6569 22 21 20.6569 21 19C21 17.3431 19.6569 16 18 16C16.3431 16 15 17.3431 15 19C15 20.6569 16.3431 22 18 22Z"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M8.59 13.51L15.42 17.49M15.41 6.51L8.59 10.49" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
             </div>
-            <div class="verse-sanskrit"></div>
-            <div class="verse-english"></div>
+            <div class="verse-content">
+                <p class="verse-sanskrit"></p>
+                <p class="verse-english"></p>
+            </div>
         </div>
     </template>
+
+    <!-- Off-screen Div for Generating Share Images -->
+    <div id="hidden-share-container" class="sr-only">
+        <div id="share-card-canvas" class="share-card-layout">
+            <div class="share-card-content">
+                <div class="share-card-header">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+                            fill="currentColor" />
+                    </svg>
+                    <span>GeetaBot</span>
+                </div>
+                <div class="share-card-body">
+                    <p class="share-sanskrit"></p>
+                    <p class="share-english"></p>
+                    <p class="share-ref">Bhagavad Gita <span class="share-ch-vs"></span></p>
+                </div>
+                <div class="share-card-footer">
+                    geetabot.com — Seek guidance from the Divine
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Preview Modal -->
+    <div id="share-modal" class="modal-overlay">
+        <div class="modal-content auth-content" style="max-width: 400px;">
+            <button id="close-share-modal" class="icon-btn close-modal-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="auth-widget">
+                <div class="widget-label">✦ Share Wisdom ✦</div>
+                <h2 class="auth-title">Spread the Light</h2>
+
+                <div id="share-preview-container"
+                    style="margin: 1.5rem 0; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden; display: flex; justify-content: center;">
+                    <!-- Image inserted here by JS -->
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                    <button class="btn-primary auth-submit" id="btn-native-share">
+                        <span class="btn-text">Share to Socials</span>
+                    </button>
+                    <button class="btn-secondary auth-submit" id="btn-download-image">
+                        <span class="btn-text">Download Image</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding Modal -->
+    <div id="onboarding-modal" class="modal-overlay">
+        <div class="modal-content auth-content" style="max-width: 500px; text-align: center;">
+            <div class="auth-widget">
+                <div class="widget-label">✦ A New Path Begins ✦</div>
+                <h2 class="auth-title" id="onboarding-greeting">Welcome, Seeker.</h2>
+                <div class="upgrade-body" style="text-align: center;">
+                    <p class="upgrade-text" style="margin-bottom: 2rem;">The Divine is ready to listen. What weighs upon
+                        your heart today?</p>
+
+                    <div class="suggestion-chips">
+                        <button class="suggestion-chip">I feel lost and lack direction in life.</button>
+                        <button class="suggestion-chip">I am struggling to find peace of mind.</button>
+                        <button class="suggestion-chip">I constantly worry about the future.</button>
+                    </div>
+
+                    <button class="text-btn" id="btn-skip-onboarding"
+                        style="margin-top: 2rem; color: var(--text-secondary);">
+                        I will speak my own words
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Modal -->
+    <div id="dashboard-modal" class="modal-overlay">
+        <div class="modal-content auth-content" style="max-width: 450px;">
+            <button id="close-dashboard-modal" class="icon-btn close-modal-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="auth-widget">
+                <div class="widget-label">✦ Account & Profile ✦</div>
+                <h2 class="auth-title">Your Details</h2>
+
+                <div class="dashboard-body">
+                    <form id="profile-form" class="auth-form" style="margin-bottom: 2rem;">
+                        <span class="history-group-label" style="display: block; margin-bottom: 1rem;">Profile</span>
+                        <div class="input-group">
+                            <label for="dashboard-name">What should Krishna call you?</label>
+                            <input type="text" id="dashboard-name" class="auth-input" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Account Email</label>
+                            <input type="email" id="dashboard-email" class="auth-input" disabled
+                                style="opacity: 0.7; cursor: not-allowed;">
+                        </div>
+                        <button type="submit" class="btn-primary auth-submit">
+                            <span class="btn-text">Save Name</span>
+                        </button>
+                        <div id="profile-success-msg"
+                            style="color: var(--accent-teal); font-size: 0.9rem; margin-top: 0.5rem; display: none;">
+                            Saved successfully!</div>
+                    </form>
+
+                    <div class="dashboard-subscription"
+                        style="margin-bottom: 2rem; border-top: 1px solid rgba(232, 160, 32, 0.15); padding-top: 1.5rem;">
+                        <span class="history-group-label" style="display: block; margin-bottom: 1rem;">Guidance
+                            Plan</span>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.4); padding: 1rem; border-radius: 12px; border: 1px solid rgba(232, 160, 32, 0.15);">
+                            <div>
+                                <span style="display: block; font-weight: bold; color: var(--accent-teal-dark);"
+                                    id="dashboard-tier">Free Tier</span>
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);" id="dashboard-usage">0
+                                    of 5 Questions Asked</span>
+                            </div>
+                            <button class="btn-secondary" id="btn-dashboard-upgrade"
+                                style="padding: 0.5rem 1rem; font-size: 0.9rem;">Upgrade</button>
+                        </div>
+                    </div>
+
+                    <div
+                        style="text-align: center; border-top: 1px solid rgba(232, 160, 32, 0.15); padding-top: 1.5rem;">
+                        <button class="text-btn" id="btn-dashboard-logout" style="color: #c0392b;">Sign Out of
+                            GeetaBot</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bookmarks Modal -->
+    <div id="bookmarks-modal" class="modal-overlay">
+        <div class="modal-content auth-content"
+            style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
+            <button id="close-bookmarks-modal" class="icon-btn close-modal-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="auth-widget" style="display: flex; flex-direction: column; height: 100%;">
+                <div class="widget-label">✦ Saved Wisdom ✦</div>
+                <h2 class="auth-title">Your Bookmarks</h2>
+                <div id="bookmarks-container"
+                    style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; padding-top: 1rem; padding-right: 1rem;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="/static/script.js"></script>
 </body>

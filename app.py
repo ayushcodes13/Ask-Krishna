@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
 from sse_starlette.sse import EventSourceResponse
 import asyncio
 import json
@@ -39,9 +40,60 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         user_response = supabase.auth.get_user(token)
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Invalid token")
-        return user_response.user
+        # Return user object as a dictionary for easier access to 'id' and 'user_metadata'
+        return user_response.user.model_dump()
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
+
+from datetime import datetime
+
+def check_usage_limit(user = Depends(get_current_user)):
+    user_id = user['id']
+    try:
+        # Fetch current usage
+        res = supabase.table('user_usage').select('*').eq('user_id', user_id).execute()
+        
+        # If no row exists, handle gracefully (assume missing trigger, create on fly)
+        if not res.data:
+            supabase.table('user_usage').insert({"user_id": user_id}).execute()
+            return True # Newly created, has limit
+            
+        usage = res.data[0]
+        tier = usage.get('tier', 'free')
+        questions_today = usage.get('questions_today', 0)
+        last_reset = usage.get('last_reset_date')
+        
+        today = datetime.utcnow().date().isoformat()
+        
+        # If the date has rolled over, reset counter
+        if last_reset != today:
+            supabase.table('user_usage').update({
+                "questions_today": 0,
+                "last_reset_date": today
+            }).eq('user_id', user_id).execute()
+            questions_today = 0
+            
+        if tier == 'free' and questions_today >= 5:
+            raise HTTPException(status_code=403, detail="FREE_LIMIT_REACHED")
+            
+        return True
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error checking limit: {e}")
+        # Fail open or fail closed? Let's fail open if DB is slightly moody
+        return True
+
+def increment_usage(user_id: str):
+    try:
+        # Increment using RPC or fetch & update
+        # Supabase Python client lacks direct increment on columns, so we fetch and add
+        res = supabase.table('user_usage').select('questions_today').eq('user_id', user_id).execute()
+        if res.data:
+            curr = res.data[0].get('questions_today', 0)
+            supabase.table('user_usage').update({"questions_today": curr + 1}).eq('user_id', user_id).execute()
+    except Exception as e:
+        print(f"Error incrementing usage: {e}")
 
 # Initialize Groq client
 groq_api_key = os.environ.get("GROQ_API_KEY")
@@ -94,9 +146,19 @@ print("Setting up Generator Pipeline...")
 # generator = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", device_map="auto")
 
 
-class ChatRequest(BaseModel):
+class Query(BaseModel):
     message: str
     session_id: str
+
+class Bookmark(BaseModel):
+    chapter: str
+    verse: str
+    sanskrit: str
+    english: str
+
+class FeedbackRequest(BaseModel):
+    session_id: str
+    feedback: str # 'helpful' or 'unhelpful'
 
 class VerseDetail(BaseModel):
     chapter: int
@@ -140,8 +202,11 @@ def find_relevant_verses(query: str, top_k: int = 3):
     return relevant_verses
 
 @app.post("/api/chat", response_model=ChatResponse)
-def chat_with_krishna(request: ChatRequest, user = Depends(get_current_user)):
+def chat_with_krishna(request: Query, user = Depends(get_current_user), _ = Depends(check_usage_limit)):
     query = request.message
+    
+    # Increment Usage
+    increment_usage(user['id'])
     
     # 1. Retrieve
     relevant_verses = find_relevant_verses(query, top_k=2)
@@ -156,7 +221,7 @@ def chat_with_krishna(request: ChatRequest, user = Depends(get_current_user)):
         context += f"Meaning: {v['english']}\n\n"
         
     # 3. Generate Response using Groq API
-    user_name = user.user_metadata.get("first_name", "dear soul") if user and hasattr(user, "user_metadata") and user.user_metadata else "dear soul"
+    user_name = user.get("user_metadata", {}).get("first_name", "dear soul")
     system_prompt = (
         f"You are Lord Krishna speaking to a soul in distress. The user's name is {user_name}. "
         "Your tone must be timeless, warm, non-judgmental, poetic yet clear. "
@@ -192,11 +257,15 @@ def chat_with_krishna(request: ChatRequest, user = Depends(get_current_user)):
     )
 
 @app.post("/api/chat/stream")
-async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = Depends(get_current_user)):
+async def chat_with_krishna_stream(request: Request, body: Query, user = Depends(get_current_user), _ = Depends(check_usage_limit)):
     query = body.message
     
     if not body.session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
+        
+    # Increment Usage immediately before streaming
+    import threading
+    threading.Thread(target=increment_usage, args=(user['id'],)).start()
     
     # 1. Retrieve
     relevant_verses = find_relevant_verses(query, top_k=2)
@@ -205,7 +274,7 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = D
         raise HTTPException(status_code=500, detail="Could not retrieve Bhagavad Gita verses.")
     
     # Send verses first as a JSON payload in the stream
-    verses_json = json.dumps([v.model_dump() if hasattr(v, 'model_dump') else v for v in relevant_verses])
+    verses_json = json.dumps([v for v in relevant_verses])
     
     # 2. Prepare context
     context = ""
@@ -213,7 +282,7 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = D
         context += f"Chapter {v['chapter']}, Verse {v['verse']}:\n"
         context += f"Meaning: {v['english']}\n\n"
         
-    user_name = user.user_metadata.get("first_name", "dear soul") if user and hasattr(user, "user_metadata") and user.user_metadata else "dear soul"
+    user_name = user.get("user_metadata", {}).get("first_name", "dear soul")
     system_prompt = (
         f"You are Lord Krishna speaking to a soul in distress. The user's name is {user_name}. "
         "Your tone must be timeless, warm, non-judgmental, poetic yet clear. "
@@ -262,7 +331,7 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = D
                     
                     if not session_res.data:
                         # Find user ID 
-                        user_id = user.id if getattr(user, 'id', None) else None
+                        user_id = user['id'] if user and 'id' in user else None
                         
                         insert_data = {
                             "id": body.session_id,
@@ -282,7 +351,7 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = D
                     }).execute()
                     
                     # Save Krishna Message
-                    verse_json = [v.model_dump() if hasattr(v, 'model_dump') else v for v in relevant_verses]
+                    verse_json = [v for v in relevant_verses]
                     supabase.table('chat_messages').insert({
                         "session_id": body.session_id,
                         "role": "krishna",
@@ -313,7 +382,7 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = D
 @app.get("/api/sessions")
 def get_user_sessions(user = Depends(get_current_user)):
     try:
-        user_id = user.id if getattr(user, 'id', None) else None
+        user_id = user['id'] if user and 'id' in user else None
         if not user_id:
             return {"sessions": []}
             
@@ -331,7 +400,7 @@ def get_user_sessions(user = Depends(get_current_user)):
 def get_chat_history(session_id: str, user = Depends(get_current_user)):
     try:
         res = supabase.table('chat_messages')\
-            .select('role, content, verses, created_at')\
+            .select('role, content, verses, created_at, feedback')\
             .eq('session_id', session_id)\
             .order('created_at')\
             .execute()
@@ -345,7 +414,8 @@ def get_chat_history(session_id: str, user = Depends(get_current_user)):
                 "role": msg.get("role"),
                 "content": msg.get("content"),
                 "verses": msg.get("verses") or [],
-                "date": msg.get("created_at")
+                "date": msg.get("created_at"),
+                "feedback": msg.get("feedback")
             })
             
         return {"messages": history}
@@ -353,6 +423,119 @@ def get_chat_history(session_id: str, user = Depends(get_current_user)):
         print(f"Error fetching history: {e}")
         return {"messages": []}
 
+@app.post("/api/feedback")
+async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get_current_user)):
+    # Simple approach: Find the latest Krishna message in this session and update its feedback column
+    try:
+        # 1. Get the latest message ID for this session where role is 'krishna'
+        latest = supabase.table('chat_messages') \
+            .select('id') \
+            .eq('session_id', req.session_id) \
+            .eq('role', 'krishna') \
+            .order('created_at', desc=True) \
+            .limit(1) \
+            .execute()
+            
+        if getattr(latest, 'data', None) and len(latest.data) > 0:
+            msg_id = latest.data[0]['id']
+            # 2. Update that message
+            supabase.table('chat_messages').update({"feedback": req.feedback}).eq('id', msg_id).execute()
+            return {"status": "success"}
+        else:
+            raise HTTPException(status_code=404, detail="No Krishna message found to leave feedback on.")
+    except Exception as e:
+        print(f"Error saving feedback: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save feedback")
+
+@app.get("/api/user/usage")
+def get_user_usage(user = Depends(get_current_user)):
+    user_id = user['id'] if user and 'id' in user else None
+    if not user_id:
+        return {"tier": "free", "questions_today": 0, "limit": 5}
+        
+    try:
+        res = supabase.table('user_usage').select('*').eq('user_id', user_id).execute()
+        if res.data and len(res.data) > 0:
+            usage = res.data[0]
+            return {
+                "tier": usage.get("tier", "free"),
+                "questions_today": usage.get("questions_today", 0),
+                "limit": 5 if usage.get("tier") == "free" else 9999
+            }
+        return {"tier": "free", "questions_today": 0, "limit": 5}
+    except Exception as e:
+        print(f"Error fetching usage stats: {e}")
+        return {"tier": "free", "questions_today": 0, "limit": 5}
+
+@app.post("/api/bookmarks")
+async def toggle_bookmark(bookmark: Bookmark, current_user: dict = Depends(get_current_user)):
+    user_id = current_user['id']
+    
+    # Check if already bookmarked
+    try:
+        existing = supabase.table('saved_verses') \
+            .select('*') \
+            .eq('user_id', user_id) \
+            .eq('chapter', bookmark.chapter) \
+            .eq('verse', bookmark.verse) \
+            .execute()
+            
+        if existing.data and len(existing.data) > 0:
+            # Delete it (Toggle off)
+            supabase.table('saved_verses').delete().eq('id', existing.data[0]['id']).execute()
+            return {"status": "removed"}
+        else:
+            # Insert it (Toggle on)
+            data = {
+                "user_id": user_id,
+                "chapter": bookmark.chapter,
+                "verse": bookmark.verse,
+                "sanskrit": bookmark.sanskrit,
+                "english": bookmark.english
+            }
+            supabase.table('saved_verses').insert(data).execute()
+            return {"status": "added"}
+    except Exception as e:
+        print(f"Error toggling bookmark: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save verse")
+
+@app.get("/api/bookmarks")
+async def get_bookmarks(current_user: dict = Depends(get_current_user)):
+    user_id = current_user['id']
+    try:
+        response = supabase.table('saved_verses').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+        return {"bookmarks": response.data}
+    except Exception as e:
+        print(f"Error fetching bookmarks: {e}")
+        return {"bookmarks": []}
+
+# --- Admin Area ---
+@app.get("/admin")
+async def serve_admin(request: Request):
+    return templates.TemplateResponse("admin.html", {"request": request})
+
+@app.get("/api/admin/stats")
+async def get_admin_stats(current_user: dict = Depends(get_current_user)):
+    # Note: In a real app, verify `current_user['email']` against an env ADMIN_EMAIL
+    try:
+        res = supabase.table('user_usage').select('*').execute()
+        if not res.data:
+            return {"users": 0, "pro_users": 0, "questions_today": 0}
+            
+        total_users = len(res.data)
+        pro_users = sum(1 for u in res.data if u.get('tier') == 'pro')
+        questions = sum(u.get('questions_today', 0) for u in res.data)
+        
+        return {
+            "users": total_users,
+            "pro_users": pro_users,
+            "questions_today": questions
+        }
+    except Exception as e:
+        print(f"Admin API Error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch stats")
+
+# --- Run App ---
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
