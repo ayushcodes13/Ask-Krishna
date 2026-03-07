@@ -1,8 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     initParticles();
 
-    const landingForm = document.getElementById('landing-form');
-    const landingInput = document.getElementById('landing-input');
+    // Supabase Initialization
+    const supabaseUrl = 'https://dehtwcvtmfussylekpoo.supabase.co';
+    const supabaseKey = 'sb_publishable_YJ_zhLqbnAwVo37tzc8Miw_DVvmIUjK';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    let currentUser = null;
+
+    const btnBeginJourney = document.getElementById('btn-begin-journey');
     const landingView = document.getElementById('landing-view');
 
     const chatForm = document.getElementById('chat-form');
@@ -15,6 +20,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const openModalBtns = document.querySelectorAll('.open-daily-verse-btn');
     const closeModalBtn = document.getElementById('close-modal');
 
+    // Auth Elements
+    const authModal = document.getElementById('auth-modal');
+    const closeAuthModal = document.getElementById('close-auth-modal');
+    const tabLogin = document.getElementById('tab-login');
+    const tabSignup = document.getElementById('tab-signup');
+    const authForm = document.getElementById('auth-form');
+    const authEmail = document.getElementById('auth-email');
+    const authPassword = document.getElementById('auth-password');
+    const authError = document.getElementById('auth-error');
+    const btnAuthSubmit = document.getElementById('btn-auth-submit');
+    const btnGoogleAuth = document.getElementById('btn-google-auth');
+    const btnLogout = document.getElementById('btn-logout');
+
+    const nameModal = document.getElementById('name-modal');
+    const nameForm = document.getElementById('name-form');
+    const userFirstName = document.getElementById('user-first-name');
+
+    let authMode = 'login'; // 'login' or 'signup'
+
     // Session Management
     let sessionId = localStorage.getItem('ask_krishna_session_id');
     if (!sessionId) {
@@ -25,8 +49,127 @@ document.addEventListener('DOMContentLoaded', () => {
     // Daily Verse Populate
     populateDailyVerse();
 
-    // Load History
-    loadHistory();
+    // Auth Listeners
+    if (btnBeginJourney) {
+        btnBeginJourney.addEventListener('click', () => {
+            authModal.classList.add('active');
+        });
+    }
+
+    if (closeAuthModal) {
+        closeAuthModal.addEventListener('click', () => {
+            authModal.classList.remove('active');
+        });
+    }
+
+    tabLogin.addEventListener('click', () => {
+        authMode = 'login';
+        tabLogin.classList.add('active');
+        tabSignup.classList.remove('active');
+        btnAuthSubmit.querySelector('.btn-text').textContent = 'Log In';
+        authError.classList.add('hidden');
+    });
+
+    tabSignup.addEventListener('click', () => {
+        authMode = 'signup';
+        tabSignup.classList.add('active');
+        tabLogin.classList.remove('active');
+        btnAuthSubmit.querySelector('.btn-text').textContent = 'Sign Up';
+        authError.classList.add('hidden');
+    });
+
+    authForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        authError.classList.add('hidden');
+        btnAuthSubmit.disabled = true;
+        btnAuthSubmit.style.opacity = '0.5';
+
+        const email = authEmail.value;
+        const password = authPassword.value;
+
+        try {
+            if (authMode === 'signup') {
+                const { data, error } = await supabase.auth.signUp({ email, password });
+                if (error) throw error;
+            } else {
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) throw error;
+            }
+        } catch (err) {
+            authError.textContent = err.message;
+            authError.classList.remove('hidden');
+        } finally {
+            btnAuthSubmit.disabled = false;
+            btnAuthSubmit.style.opacity = '1';
+        }
+    });
+
+    btnGoogleAuth.addEventListener('click', async () => {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+        });
+        if (error) console.error("Google auth error", error);
+    });
+
+    if (btnLogout) {
+        btnLogout.addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            window.location.reload();
+        });
+    }
+
+    nameForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const firstName = userFirstName.value.trim();
+        if (!firstName) return;
+
+        const { data, error } = await supabase.auth.updateUser({
+            data: { first_name: firstName }
+        });
+
+        if (!error) {
+            nameModal.classList.remove('active');
+            showChatView();
+        }
+    });
+
+    // Supabase Auth State Change Listener
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session && session.user) {
+            currentUser = session.user;
+            authModal.classList.remove('active');
+
+            // Check if user has a first name
+            if (!currentUser.user_metadata || !currentUser.user_metadata.first_name) {
+                nameModal.classList.add('active');
+            } else {
+                nameModal.classList.remove('active');
+                showChatView();
+            }
+        } else {
+            currentUser = null;
+            landingView.classList.remove('hidden');
+            landingView.classList.add('active');
+            chatView.classList.remove('active');
+            chatView.classList.add('hidden');
+        }
+    });
+
+    function showChatView() {
+        if (landingView.classList.contains('active')) {
+            landingView.classList.remove('active');
+            landingView.classList.add('hidden');
+            setTimeout(() => {
+                chatView.classList.remove('hidden');
+                chatView.classList.add('active');
+                loadHistory();
+            }, 500);
+        } else if (chatView.classList.contains('hidden')) {
+            chatView.classList.remove('hidden');
+            chatView.classList.add('active');
+            loadHistory();
+        }
+    }
 
     // Auto-resize textareas
     const textareas = document.querySelectorAll('textarea');
@@ -47,36 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.closest('form').dispatchEvent(new Event('submit'));
             }
         });
-    });
-
-    // Handle Landing Submission
-    landingForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const message = landingInput.value.trim();
-        if (!message) return;
-
-        // Transition to Chat View
-        landingView.classList.remove('active');
-        landingView.classList.add('hidden');
-
-        setTimeout(() => {
-            chatView.classList.remove('hidden');
-            chatView.classList.add('active');
-
-            // Add user message
-            addUserMessage(message);
-            // Fetch Krishna's response
-            fetchResponse(message);
-        }, 800);
-    });
-
-    // Handle Sidebar Toggles
-    openSidebarBtn.addEventListener('click', () => {
-        sidebar.classList.add('open');
-    });
-
-    closeSidebarBtn.addEventListener('click', () => {
-        sidebar.classList.remove('open');
     });
 
     // Handle Modal Toggles
@@ -137,7 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchResponse(message) {
-        // Create Krishna's empty message container first
         const messageId = Date.now().toString();
         const contentContainer = addKrishnaStreamingResponseContainer(messageId);
         const textElement = contentContainer.querySelector('.krishna-text');
@@ -146,9 +258,15 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-send').style.opacity = '0.5';
 
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session ? session.access_token : '';
+
             const response = await fetch('/api/chat/stream', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ message: message, session_id: sessionId })
             });
 
@@ -183,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 console.error("Error parsing verses", e);
                             }
                         } else if (currentEvent === 'message') {
-                            // We need to decode literal "\n" sequences sent by SSE as two characters back into real newlines
+                            // Decode literal "\n" sequences
                             const decodedData = data.replace(/\\n/g, '\n').replace(/\\"/g, '"');
                             fullText += decodedData;
 
@@ -262,15 +380,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadHistory() {
         try {
-            const res = await fetch(`/api/history/${sessionId}`);
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session ? session.access_token : '';
+
+            const res = await fetch(`/api/history/${sessionId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
             if (res.ok) {
                 const data = await res.json();
                 if (data.messages && data.messages.length > 0) {
-                    // Hide landing, show chat
-                    landingView.classList.remove('active');
-                    landingView.classList.add('hidden');
-                    chatView.classList.remove('hidden');
-                    chatView.classList.add('active');
+
+                    // Clear history before appending, just in case
+                    const msgs = chatHistory.querySelectorAll('.message');
+                    msgs.forEach(m => m.remove());
 
                     data.messages.forEach(msg => {
                         if (msg.role === 'user') {
@@ -300,16 +423,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Populate Sidebar with summary
                     const historyList = document.getElementById('history-list');
-                    historyList.innerHTML = `
-                        <div class="history-item" onclick="localStorage.removeItem('ask_krishna_session_id'); window.location.reload();">
-                            <span class="history-date" style="color: var(--accent-gold);">✦ Start New Journey</span>
-                            <div class="history-preview">Begin a new path and clear your current spiritual conversation.</div>
-                        </div>
-                        <div class="history-item" style="cursor: default; border-color: transparent;">
-                            <span class="history-date">Current Journey</span>
-                            <div class="history-preview">${data.messages.length} exchanges recorded.</div>
-                        </div>
-                    `;
+                    if (historyList) {
+                        historyList.innerHTML = `
+                            <div class="history-item" onclick="localStorage.removeItem('ask_krishna_session_id'); window.location.reload();">
+                                <span class="history-date" style="color: var(--accent-gold);">✦ Start New Journey</span>
+                                <div class="history-preview">Begin a new path and clear your current spiritual conversation.</div>
+                            </div>
+                            <div class="history-item" style="cursor: default; border-color: transparent;">
+                                <span class="history-date">Current Journey</span>
+                                <div class="history-preview">${data.messages.length} exchanges recorded.</div>
+                            </div>
+                        `;
+                    }
 
                     scrollToBottom();
                 }
@@ -410,8 +535,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const verse = verses[dayOfYear % verses.length];
 
-        document.getElementById('daily-sanskrit').textContent = verse.s;
-        document.getElementById('daily-english').textContent = verse.e;
-        document.querySelector('.widget-ref').textContent = `(Bhagavad Gita ${verse.r})`;
+        const sElem = document.getElementById('daily-sanskrit');
+        const eElem = document.getElementById('daily-english');
+        const rElem = document.querySelector('.widget-ref');
+        if (sElem) sElem.textContent = verse.s;
+        if (eElem) eElem.textContent = verse.e;
+        if (rElem) rElem.textContent = `(Bhagavad Gita ${verse.r})`;
     }
 });

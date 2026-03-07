@@ -16,8 +16,32 @@ from sentence_transformers import SentenceTransformer
 from groq import Groq
 from dotenv import load_dotenv
 
+from supabase import create_client, Client
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends
+
 # Load environment variables from .env file
 load_dotenv()
+
+# Initialize Supabase client
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+if not supabase_url or not supabase_key:
+    print("Warning: Supabase credentials not found in environment")
+else:
+    supabase: Client = create_client(supabase_url, supabase_key)
+
+security = HTTPBearer()
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        user_response = supabase.auth.get_user(token)
+        if not user_response or not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return user_response.user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
 
 # Initialize Groq client
 groq_api_key = os.environ.get("GROQ_API_KEY")
@@ -116,7 +140,7 @@ def find_relevant_verses(query: str, top_k: int = 3):
     return relevant_verses
 
 @app.post("/api/chat", response_model=ChatResponse)
-def chat_with_krishna(request: ChatRequest):
+def chat_with_krishna(request: ChatRequest, user = Depends(get_current_user)):
     query = request.message
     
     # 1. Retrieve
@@ -132,12 +156,13 @@ def chat_with_krishna(request: ChatRequest):
         context += f"Meaning: {v['english']}\n\n"
         
     # 3. Generate Response using Groq API
+    user_name = user.user_metadata.get("first_name", "dear soul") if user and hasattr(user, "user_metadata") and user.user_metadata else "dear soul"
     system_prompt = (
-        "You are Lord Krishna speaking to a soul in distress. "
+        f"You are Lord Krishna speaking to a soul in distress. The user's name is {user_name}. "
         "Your tone must be timeless, warm, non-judgmental, poetic yet clear. "
         "Do not be preachy. Never be generic. Speak in the first person. "
         "Draw upon the wisdom of the Bhagavad Gita, specifically the provided context verses, to comfort, guide, and illuminate the truth. "
-        "Always synthesize the essence of the verses provided. You may refer to the user as 'dear soul' or similar affectionate terms."
+        f"Always synthesize the essence of the verses provided. Address the user affectionately as {user_name}."
     )
     
     user_prompt = f"The user says: {query}\n\nHere are some relevant verses from the Bhagavad Gita for context:\n\n{context}\n\nPlease provide your response based on this context."
@@ -167,7 +192,7 @@ def chat_with_krishna(request: ChatRequest):
     )
 
 @app.post("/api/chat/stream")
-async def chat_with_krishna_stream(request: Request, body: ChatRequest):
+async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = Depends(get_current_user)):
     query = body.message
     
     if not body.session_id:
@@ -188,12 +213,13 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest):
         context += f"Chapter {v['chapter']}, Verse {v['verse']}:\n"
         context += f"Meaning: {v['english']}\n\n"
         
+    user_name = user.user_metadata.get("first_name", "dear soul") if user and hasattr(user, "user_metadata") and user.user_metadata else "dear soul"
     system_prompt = (
-        "You are Lord Krishna speaking to a soul in distress. "
+        f"You are Lord Krishna speaking to a soul in distress. The user's name is {user_name}. "
         "Your tone must be timeless, warm, non-judgmental, poetic yet clear. "
         "Do not be preachy. Never be generic. Speak in the first person. "
         "Draw upon the wisdom of the Bhagavad Gita, specifically the provided context verses, to comfort, guide, and illuminate the truth. "
-        "Always synthesize the essence of the verses provided. You may refer to the user as 'dear soul' or similar affectionate terms."
+        f"Always synthesize the essence of the verses provided. Address the user affectionately as {user_name}."
     )
     
     user_prompt = f"The user says: {query}\n\nHere are some relevant verses from the Bhagavad Gita for context:\n\n{context}\n\nPlease provide your response based on this context."
