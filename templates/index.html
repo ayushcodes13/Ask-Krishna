@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask Krishna - Sacred Guidance</title>
+    <!-- Classical typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body>
+    <!-- Sidebar / Chat History -->
+    <div id="history-sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h3>Your Journey</h3>
+            <button id="close-sidebar" class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+        </div>
+        <div class="sidebar-content" id="history-list">
+            <!-- History items will be injected here -->
+            <div class="empty-history">Your spiritual journey awaits...</div>
+        </div>
+    </div>
+
+    <!-- Ambient particle background -->
+    <canvas id="particles-canvas"></canvas>
+    <div class="texture-overlay"></div>
+
+    <!-- Landing View -->
+    <div id="landing-view" class="view-container active">
+        <main class="landing-content">
+
+            <h1 class="hero-title fade-in-up">What troubles you, dear soul?</h1>
+            <form id="landing-form" class="fade-in-up delay-1">
+                <div class="input-wrapper">
+                    <textarea id="landing-input"
+                        placeholder="Share your struggles with relationships, career, fear, grief, or confusion..."
+                        rows="4" required></textarea>
+                    <div class="input-glow"></div>
+                </div>
+                <button type="submit" class="btn-primary">
+                    <span class="btn-text">Seek Guidance</span>
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </form>
+        </main>
+    </div>
+
+    <!-- Chat View -->
+    <div id="chat-view" class="view-container hidden">
+        <header class="chat-header">
+            <button id="open-sidebar" class="icon-btn left-action">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 6H20M4 12H20M4 18H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="header-logo" onclick="window.location.reload()">
+                <svg class="peacock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Abstract peacock feather icon -->
+                    <path
+                        d="M12 22C12 22 17 18 19 14C20.6 10.8 19 8 16 6C13.5 4.3 12 2 12 2C12 2 10.5 4.3 8 6C5 8 3.4 10.8 5 14C7 18 12 22 12 22Z"
+                        fill="url(#paint0_linear)" />
+                    <circle cx="12" cy="11" r="3" fill="#1A6B72" />
+                    <circle cx="12" cy="11" r="1.5" fill="#E8A020" />
+                    <defs>
+                        <linearGradient id="paint0_linear" x1="12" y1="2" x2="12" y2="22"
+                            gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#1A6B72" />
+                            <stop offset="1" stop-color="#0c3236" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span>Ask Krishna</span>
+            </div>
+            <div class="right-action">
+                <button class="text-btn open-daily-verse-btn">✦ Daily Verse</button>
+            </div>
+        </header>
+
+        <div id="chat-container">
+            <div id="chat-history">
+                <!-- Chat messages will be dynamically injected here -->
+            </div>
+
+            <div class="chat-input-area">
+                <form id="chat-form">
+                    <div class="input-wrapper chat-input-wrapper">
+                        <textarea id="chat-input" placeholder="Continue your journey..." rows="1" required></textarea>
+                        <button type="submit" class="btn-send" id="btn-send">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Verse Modal -->
+    <div id="verse-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button id="close-modal" class="icon-btn close-modal-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="daily-verse-widget expanded">
+                <div class="widget-label">✦ Verse of the Day ✦</div>
+                <div class="widget-sanskrit" id="daily-sanskrit"></div>
+                <div class="widget-english" id="daily-english"></div>
+                <div class="widget-ref"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template for Verse Cards (hidden, used by JS) -->
+    <template id="verse-card-template">
+        <div class="verse-card">
+            <div class="verse-badge">Bhagavad Gita — Chapter <span class="ch"></span>, Verse <span class="vs"></span>
+            </div>
+            <div class="verse-sanskrit"></div>
+            <div class="verse-english"></div>
+        </div>
+    </template>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
