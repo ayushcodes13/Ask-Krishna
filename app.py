@@ -255,28 +255,42 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = D
                     
             # --- Save to Database after successful stream ---
             def save_to_db():
-                db = next(get_db())
-                # Ensure session exists
-                db_session = db.query(models.ChatSession).filter(models.ChatSession.id == body.session_id).first()
-                if not db_session:
-                    db_session = models.ChatSession(id=body.session_id)
-                    db.add(db_session)
-                    db.commit()
-                
-                # Save User Message
-                user_msg = models.ChatMessage(session_id=body.session_id, role="user", content=query)
-                db.add(user_msg)
-                
-                # Save Krishna Message
-                krishna_msg = models.ChatMessage(
-                    session_id=body.session_id,
-                    role="krishna",
-                    content=full_response,
-                    verses=[v.model_dump() if hasattr(v, 'model_dump') else v for v in relevant_verses]
-                )
-                db.add(krishna_msg)
-                
-                db.commit()
+                try:
+                    # Save into `chat_sessions` first if it doesn't exist
+                    # Supabase will complain if we try to insert duplicate Pkey, so we upsert or check first.
+                    session_res = supabase.table('chat_sessions').select('id').eq('id', body.session_id).execute()
+                    
+                    if not session_res.data:
+                        # Find user ID 
+                        user_id = user.id if getattr(user, 'id', None) else None
+                        
+                        insert_data = {
+                            "id": body.session_id,
+                            "first_message": query
+                        }
+                        if user_id:
+                            insert_data["user_id"] = user_id
+                            
+                        supabase.table('chat_sessions').insert(insert_data).execute()
+
+                    # Save User Message
+                    supabase.table('chat_messages').insert({
+                        "session_id": body.session_id,
+                        "role": "user",
+                        "content": query,
+                        "verses": []
+                    }).execute()
+                    
+                    # Save Krishna Message
+                    verse_json = [v.model_dump() if hasattr(v, 'model_dump') else v for v in relevant_verses]
+                    supabase.table('chat_messages').insert({
+                        "session_id": body.session_id,
+                        "role": "krishna",
+                        "content": full_response,
+                        "verses": verse_json
+                    }).execute()
+                except Exception as e:
+                    print(f"Error saving to Supabase: {e}")
             
             # Run save blocking task in background
             import threading
@@ -296,25 +310,48 @@ async def chat_with_krishna_stream(request: Request, body: ChatRequest, user = D
 
     return EventSourceResponse(event_generator())
 
+@app.get("/api/sessions")
+def get_user_sessions(user = Depends(get_current_user)):
+    try:
+        user_id = user.id if getattr(user, 'id', None) else None
+        if not user_id:
+            return {"sessions": []}
+            
+        res = supabase.table('chat_sessions')\
+            .select('id, first_message, created_at')\
+            .eq('user_id', user_id)\
+            .order('created_at', desc=True)\
+            .execute()
+        return {"sessions": res.data}
+    except Exception as e:
+        print(f"Error fetching sessions: {e}")
+        return {"sessions": []}
+
 @app.get("/api/history/{session_id}")
-def get_chat_history(session_id: str, db: Session = Depends(get_db)):
-    db_session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
-    if not db_session:
+def get_chat_history(session_id: str, user = Depends(get_current_user)):
+    try:
+        res = supabase.table('chat_messages')\
+            .select('role, content, verses, created_at')\
+            .eq('session_id', session_id)\
+            .order('created_at')\
+            .execute()
+            
+        if not res.data:
+            return {"messages": []}
+            
+        history = []
+        for msg in res.data:
+            history.append({
+                "role": msg.get("role"),
+                "content": msg.get("content"),
+                "verses": msg.get("verses") or [],
+                "date": msg.get("created_at")
+            })
+            
+        return {"messages": history}
+    except Exception as e:
+        print(f"Error fetching history: {e}")
         return {"messages": []}
-    
-    # Sort messages by creation time
-    messages = db.query(models.ChatMessage).filter(models.ChatMessage.session_id == session_id).order_by(models.ChatMessage.created_at.asc()).all()
-    
-    history = []
-    for msg in messages:
-        history.append({
-            "role": msg.role,
-            "content": msg.content,
-            "verses": msg.verses or [],
-            "date": msg.created_at.isoformat()
-        })
-        
-    return {"messages": history}
 
 if __name__ == "__main__":
     import uvicorn
