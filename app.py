@@ -104,12 +104,14 @@ groq_client = Groq(api_key=groq_api_key)
 
 app = FastAPI(title="Ask-Krishna API")
 
-# Allow CORS for local development
+# Allow CORS for local and production
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -516,7 +518,12 @@ async def serve_admin(request: Request):
 
 @app.get("/api/admin/stats")
 async def get_admin_stats(current_user: dict = Depends(get_current_user)):
-    # Note: In a real app, verify `current_user['email']` against an env ADMIN_EMAIL
+    admin_email = os.environ.get("ADMIN_EMAIL")
+    user_email = current_user.get("email")
+    
+    if not admin_email or user_email != admin_email:
+        raise HTTPException(status_code=403, detail="Unauthorized: Admins only.")
+        
     try:
         res = supabase.table('user_usage').select('*').execute()
         if not res.data:
