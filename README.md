@@ -4,9 +4,6 @@
 
 **Seek Divine Guidance Through the Wisdom of the Bhagavad Gita**
 
-<a href="https://geetabot.com">
-  <img src="https://img.shields.io/badge/Status-Active-success.svg?style=for-the-badge&color=E8A020" alt="Status" />
-</a>
 <a href="https://python.org">
   <img src="https://img.shields.io/badge/Python-3.9+-blue.svg?style=for-the-badge&logo=python&logoColor=white&color=1A6B72" alt="Python 3.9+" />
 </a>
@@ -21,7 +18,7 @@
 </a>
 
 <br>
-<img src="https://via.placeholder.com/800x400/1A1200/E8A020?text=Ask+Krishna+SaaS+Experience" alt="Ask Krishna Interface Preview" style="border-radius: 12px; margin-top: 15px; box-shadow: 0 4px 14px rgba(0,0,0,0.4);" />
+<img src="screenshots/landing-desktop.png" alt="Ask Krishna landing screen at desktop width" width="800" />
 <br><br>
 
 </div>
@@ -30,7 +27,7 @@
 
 ## ✨ Features \& Capabilities
 
-**Ask Krishna** has been built from the ground up as a fully-fledged SaaS portfolio project. It demonstrates full-stack engineering, complete with authentication, real-time streaming, database integration, and a beautiful UI adhering to a **Sacred Minimalism** aesthetic.
+**Ask Krishna** is a full-stack prototype for asking questions about the Bhagavad Gita. It retrieves relevant verses and uses Groq to generate a response, with a FastAPI backend and a browser UI styled around **Sacred Minimalism**. The backend requires configured Groq and Supabase services; an end-to-end response flow has not been verified in this checkout.
 
 *   🔐 **Secure Authentication**: Email/Password and Google OAuth login flows powered by Supabase GoTrue.
 *   📖 **"Your Journey" History**: Persistent chat sessions stored in PostgreSQL. Revisit past dialogues via a beautiful, journal-style sidebar.
@@ -41,6 +38,24 @@
 *   👍 **Feedback Loop**: Users can thumbs-up or thumbs-down responses to help curate the AI's instruction set over time.
 *   📊 **Admin Dashboard**: A secure control panel (`admin.html`) to monitor total users, active subscriptions, and daily platform usage metrics.
 *   📨 **Notification Worker**: A background Python script (`worker.py`) built to simulate the dispatch of "Daily Verses" and re-engagement emails.
+
+---
+
+## 📸 Screenshots
+
+These are captures of the repository's actual frontend. The desktop sign-in panel was opened by clicking **Begin Your Journey**; no account details were entered. The narrow capture is approximately 480 CSS pixels wide, produced with 300% browser zoom in Chrome because the available Aside browser did not expose viewport resizing.
+
+<div align="center">
+  <img src="screenshots/auth-desktop.png" alt="Ask Krishna login and sign-up panel at desktop width" width="800" />
+  <br />
+  <sub>Desktop sign-in panel (1440 × 900)</sub>
+  <br /><br />
+  <img src="screenshots/landing-mobile.jpg" alt="Ask Krishna landing screen at a narrow effective content width" width="320" />
+  <br />
+  <sub>Narrow landing view (~480 CSS px effective width)</sub>
+</div>
+
+The captures verify the frontend presentation only. The FastAPI server could not be started in this environment (`uvicorn` is not installed, and `GROQ_API_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` are absent), so authentication, database access, and generated answers were not exercised.
 
 ---
 
@@ -88,6 +103,10 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 The divine experience will be available at `http://localhost:8000`.
 
 ---
+
+## Deployment
+
+`render.yaml` describes a Render web service. No `.vercel` project linkage was found locally, and the Vercel CLI is unavailable in this environment, and no Vercel deployment was tested. The FastAPI app loads PyTorch/SentenceTransformers and a local embeddings file during startup, so package size, cold start, memory use, and file access would need validation before recommending Vercel. The README's former `geetabot.com` status badge was removed: on 2026-10-16, that hostname failed DNS resolution (`DNS_PROBE_FINISHED_NXDOMAIN`), so a live deployment could not be verified.
 
 ## 🎨 Design Philosophy: *Sacred Minimalism*
 
