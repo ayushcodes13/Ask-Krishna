@@ -122,4 +122,4 @@ The UI ditches the generic "SaaS look" for an ancient, premium, temple-like atmo
 
 ## Project presentation
 
-A static, screenshot-led portfolio page for this project is available at `https://ask-krishna.devayushrout.me` (when deployed). It shows the captured frontend only; it does not provide a live chat, authentication, verse retrieval, or database access. See the setup notes above for the separate FastAPI application's requirements and current verification limits.
+A static, screenshot-led portfolio page for this project is live at [ask-krishna.devayushrout.me](https://ask-krishna.devayushrout.me). It shows the captured frontend only; it does not provide a live chat, authentication, verse retrieval, or database access. See the setup notes above for the separate FastAPI application's requirements and current verification limits.
