@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f2e5">
+  <meta name="description" content="A screenshot-led portfolio presentation for Ask Krishna, a Bhagavad Gita question-answering prototype.">
+  <title>Ask Krishna — a Bhagavad Gita prototype</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="Ask Krishna home"><span aria-hidden="true">✳</span> Ask Krishna</a>
+    <a class="text-link" href="https://github.com/ayushcodes13/Ask-Krishna">View source <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <p class="eyebrow">A Bhagavad Gita question-answering prototype</p>
+      <h1 id="hero-title">A quiet space to seek wisdom.</h1>
+      <p class="intro">Ask Krishna explores a conversational way to find relevant verses and reflect on their meaning, with a warm, parchment-inspired interface.</p>
+      <div class="status"><span class="status-dot" aria-hidden="true"></span> Portfolio presentation · captured interface screens</div>
+      <figure class="hero-shot">
+        <img src="assets/landing-desktop.png" alt="Captured Ask Krishna landing screen with the prompt ‘What troubles you, dear soul?’ and a Begin Your Journey button" width="1440" height="900">
+        <figcaption>Landing screen · repository screenshot</figcaption>
+      </figure>
+    </section>
+
+    <section class="screens" aria-labelledby="screens-title">
+      <div class="section-head">
+        <p class="eyebrow">Interface captures</p>
+        <h2 id="screens-title">A glimpse of the experience</h2>
+        <p>These images are genuine screenshots stored in the project repository. They show the frontend only.</p>
+      </div>
+      <div class="screen-grid">
+        <figure class="screen-card auth-card">
+          <img src="assets/auth-desktop.png" alt="Captured Ask Krishna sign-in screen with email, password, and Google sign-in controls" width="1440" height="900" loading="lazy">
+          <figcaption><strong>Sign-in concept</strong><span>Captured before entering any account details</span></figcaption>
+        </figure>
+        <figure class="screen-card mobile-card">
+          <img src="assets/landing-mobile.jpg" alt="Captured narrow-width Ask Krishna landing screen" width="475" height="239" loading="lazy">
+          <figcaption><strong>Narrow layout</strong><span>Existing screenshot at approximately 480 CSS pixels effective width</span></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="details" aria-label="Project details">
+      <article>
+        <p class="eyebrow">How it is intended to work</p>
+        <h2>Verse retrieval meets a conversational interface.</h2>
+        <p>The repository pairs a FastAPI application with local verse embeddings, Groq for answer generation, and Supabase for authentication and persistence.</p>
+        <p class="small-note">Those backend connections and generated answers have not been exercised in this environment.</p>
+      </article>
+      <aside class="boundary" aria-labelledby="boundary-title">
+        <p class="eyebrow">Current boundary</p>
+        <h2 id="boundary-title">This page is a static presentation.</h2>
+        <p>It does not provide sign-in, chat, verse retrieval, or database access. The actual application is a separate FastAPI project that needs configured services and a compatible Python runtime.</p>
+        <a class="source-link" href="https://github.com/ayushcodes13/Ask-Krishna">Read setup instructions and source <span aria-hidden="true">↗</span></a>
+      </aside>
+    </section>
+  </main>
+
+  <footer><span>Ask Krishna · Portfolio prototype</span><span>Frontend captures only · no live answers are served here</span></footer>
+</body>
+</html>

@@ -153,6 +153,15 @@ venv.bak/
 
 # mkdocs documentation
 /site
+!/site/
+/site/*
+!/site/index.html
+!/site/styles.css
+!/site/assets/
+/site/assets/*
+!/site/assets/landing-desktop.png
+!/site/assets/auth-desktop.png
+!/site/assets/landing-mobile.jpg
 
 # mypy
 .mypy_cache/
